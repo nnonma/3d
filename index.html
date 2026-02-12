@@ -3,28 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NEMATODE: Triple Crisis 3D - Ultimate Edition</title>
+    <title>NEMATODE: Triple Crisis 3D - Investigator Edition</title>
     <style>
         body { margin: 0; background: #050505; overflow: hidden; font-family: 'MS Gothic', 'Courier New', monospace; color: #00ff00; touch-action: none; }
         #container { position: relative; width: 100vw; height: 100vh; }
         
-        /* UI Layers */
         #ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; font-size: 16px; text-shadow: 2px 2px #000; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 1s; }
         #msg-layer { position: absolute; bottom: 120px; width: 100%; text-align: center; color: #fff; font-size: 16px; pointer-events: none; z-index: 50; text-shadow: 2px 2px #000; display: none; }
         .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; box-shadow: inset 0 0 200px rgba(0,0,0,0.95); z-index: 5; }
 
-        /* Intro Screen */
         #intro-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
         #intro-text { color: #ccc; font-size: 14px; line-height: 2.2; letter-spacing: 1px; max-width: 320px; text-align: left; display: none; padding: 20px; }
         #click-to-start { color: #00ff00; font-size: 14px; border: 1px solid #00ff00; padding: 10px 20px; background: rgba(0,255,0,0.1); }
         
-        /* Title Screen */
         #start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); padding: 40px; text-align: center; z-index: 100; border: 1px solid #ff0000; width: 280px; display: none; }
         #logo { letter-spacing: 5px; border-bottom: 1px solid #ff0000; padding-bottom: 10px; color: #ff0000; }
         .logo-char { display: inline-block; transition: opacity 0.05s; }
         .blink-off { opacity: 0.1; }
 
-        /* Transition Overlay */
         #noise-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0); pointer-events: none; z-index: 150; }
     </style>
 </head>
@@ -60,7 +56,7 @@
 <script type="module">
 import * as THREE from 'three';
 
-// --- Game Settings ---
+// --- Config & State ---
 const levels = [
     { name: "LEVEL 1: GREEN DEPTHS", mapColor: 0x0a1a0a, enemyColor: 0x00ff66, enemyCount: 2 },
     { name: "LEVEL 2: BLOOD LAB", mapColor: 0x220808, enemyColor: 0xff3333, enemyCount: 3 },
@@ -69,11 +65,12 @@ const levels = [
 
 let state = 'intro';
 let currentLevel = 1;
-let currentMap = 0; // 0:Center, 1:North, 2:East, 3:West, 4:South
-let player = { hp: 2, maxHp: 2, hasT: false, saved: 0, invul: 0, pos: new THREE.Vector3(0, 0.5, 5) };
+let currentMap = 0; 
+let player = { hp: 2, maxHp: 2, hasT: false, saved: 0, invul: 0, pos: new THREE.Vector3(0, 0, 5), lastStep: 0 };
 let enemies = [];
 let treasures = [null, null, null, null, null];
-let frame = 0;
+let footprints = [];
+let audioCtx = null;
 
 // --- Three.js Setup ---
 const scene = new THREE.Scene();
@@ -82,49 +79,41 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Lighting
 const ambient = new THREE.AmbientLight(0xffffff, 0.05);
 scene.add(ambient);
-const pLight = new THREE.PointLight(0x00ff00, 5, 20); 
+const pLight = new THREE.PointLight(0x00ff00, 8, 20); 
 scene.add(pLight);
 
-// World Map (Grid Floor)
-const floorGeo = new THREE.PlaneGeometry(40, 40);
-const floorMat = new THREE.MeshStandardMaterial({ color: 0x050505, wireframe: false });
-const floor = new THREE.Mesh(floorGeo, floorMat);
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x050505 });
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), floorMat);
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
-// Border Lines (切替位置を分かりやすく)
 const grid = new THREE.GridHelper(40, 10, 0x333333, 0x111111);
 grid.position.y = 0.05;
 scene.add(grid);
 
-// Portal markers
-function createPortal(x, z, color) {
-    const geo = new THREE.BoxGeometry(4, 0.1, 1);
-    const mat = new THREE.MeshBasicMaterial({ color: color, transparent:true, opacity:0.3 });
-    const p = new THREE.Mesh(geo, mat);
-    p.position.set(x, 0, z);
-    if(x !== 0) p.rotation.y = Math.PI/2;
-    return p;
-}
-const portals = [
-    createPortal(0, -19.5, 0x00ff00), // North
-    createPortal(19.5, 0, 0x00ff00),  // East
-    createPortal(-19.5, 0, 0x00ff00), // West
-    createPortal(0, 19.5, 0x00ff00)   // South
-];
-portals.forEach(p => scene.add(p));
+// --- Investigator Character Design ---
+const playerGroup = new THREE.Group();
+// 胴体
+const pBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.4), new THREE.MeshStandardMaterial({ color: 0x006600 }));
+pBody.position.y = 0.6;
+// 頭部
+const pHead = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
+pHead.position.y = 1.15;
+// バックパック (遺物回収装置)
+const pPack = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.3), new THREE.MeshStandardMaterial({ color: 0x003300 }));
+pPack.position.set(0, 0.6, -0.3);
+// 足
+const lFoot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 0.3), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+const rFoot = lFoot.clone();
+lFoot.position.set(-0.2, 0.1, 0);
+rFoot.position.set(0.2, 0.1, 0);
 
-// Player
-const playerMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(0.8, 0.8, 0.8),
-    new THREE.MeshStandardMaterial({ color: 0x00ff00 })
-);
-scene.add(playerMesh);
+playerGroup.add(pBody, pHead, pPack, lFoot, rFoot);
+scene.add(playerGroup);
 
-// Altar (Map 1)
+// Altar
 const altarGroup = new THREE.Group();
 const altarBase = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), new THREE.MeshStandardMaterial({color:0x333333}));
 const altarCore = new THREE.Mesh(new THREE.BoxGeometry(2, 0.4, 2), new THREE.MeshStandardMaterial({color:0x00a040}));
@@ -134,7 +123,7 @@ book.position.set(2, 0.2, -2);
 altarGroup.add(altarBase, altarCore, book);
 scene.add(altarGroup);
 
-// --- Logic Classes ---
+// --- Logic ---
 class Nematode3D {
     constructor() {
         this.group = new THREE.Group();
@@ -163,38 +152,77 @@ class Nematode3D {
     remove() { scene.remove(this.group); }
 }
 
-// --- Interaction & Input ---
+function createFootprint(pos) {
+    const geo = new THREE.PlaneGeometry(0.3, 0.3);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.4 });
+    const fp = new THREE.Mesh(geo, mat);
+    fp.rotation.x = -Math.PI / 2;
+    fp.position.set(pos.x, 0.06, pos.z);
+    scene.add(fp);
+    footprints.push({ mesh: fp, life: 1.0 });
+}
+
+// --- Audio Engine ---
+function playTone(freq, type, start, duration, vol=0.1) {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + start);
+    g.gain.setValueAtTime(vol, audioCtx.currentTime + start);
+    g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + start + duration);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + start);
+    osc.stop(audioCtx.currentTime + start + duration);
+}
+
+function playStepSound() {
+    if (!audioCtx) return;
+    playTone(60, 'sine', 0, 0.1, 0.2); // 低い足音
+}
+
+function playConviniSound() {
+    if (!audioCtx) return;
+    // チャラリラリラリン♪ (FamilyMart Style Melody)
+    const melody = [
+        {f: 587.33, d: 0.2}, {f: 440.00, d: 0.2}, {f: 392.00, d: 0.2}, {f: 440.00, d: 0.2}, 
+        {f: 493.88, d: 0.2}, {f: 587.33, d: 0.4}, {f: 440.00, d: 0.2}, {f: 493.88, d: 0.2}, 
+        {f: 440.00, d: 0.2}, {f: 392.00, d: 0.2}, {f: 587.33, d: 0.4}
+    ];
+    let time = 0;
+    melody.forEach(m => {
+        playTone(m.f, 'square', time, m.d, 0.05);
+        time += m.d;
+    });
+}
+
+// --- Interaction ---
 const keys = {};
 window.onkeydown = e => keys[e.code] = true;
 window.onkeyup = e => keys[e.code] = false;
 
 window.handleIntroClick = () => {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if(state !== 'intro') return;
     const txt = document.getElementById('intro-text');
     const btn = document.getElementById('click-to-start');
     if(btn.style.display !== 'none') {
-        btn.style.display = 'none';
-        txt.style.display = 'block';
-    } else {
-        showTitle();
-    }
+        btn.style.display = 'none'; txt.style.display = 'block';
+    } else { showTitle(); }
 };
 
 function showTitle() {
     state = 'title';
     document.getElementById('intro-screen').style.display = 'none';
     document.getElementById('start-screen').style.display = 'block';
-    setInterval(updateLogoBlink, 100);
-}
-
-function updateLogoBlink() {
-    if (state !== "title") return;
-    if (Math.random() < 0.1) {
-        const chars = document.querySelectorAll('.logo-char');
-        const target = chars[Math.floor(Math.random() * chars.length)];
-        target.classList.add('blink-off');
-        setTimeout(() => target.classList.remove('blink-off'), 50 + Math.random() * 100);
-    }
+    setInterval(() => {
+        if (state !== "title") return;
+        if (Math.random() < 0.1) {
+            const chars = document.querySelectorAll('.logo-char');
+            const target = chars[Math.floor(Math.random() * chars.length)];
+            target.classList.add('blink-off');
+            setTimeout(() => target.classList.remove('blink-off'), 100);
+        }
+    }, 100);
 }
 
 window.startGame = () => {
@@ -205,39 +233,34 @@ window.startGame = () => {
 
 function initLevel() {
     state = 'play';
-    changeMap(0);
     player.hp = player.maxHp;
     player.saved = 0;
     player.hasT = false;
+    player.pos.set(0, 0, 5);
     spawnTreasures();
-    updateUI();
+    changeMap(0);
 }
 
 function spawnTreasures() {
     treasures.forEach(t => { if(t) scene.remove(t); });
     treasures = [null, null, null, null, null];
     for(let i=2; i<=4; i++) {
-        const t = new THREE.Mesh(
-            new THREE.OctahedronGeometry(0.5),
-            new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff})
-        );
+        const t = new THREE.Mesh(new THREE.OctahedronGeometry(0.5), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff}));
         t.position.set(Math.random()*26-13, 0.6, Math.random()*26-13);
         treasures[i] = t;
     }
 }
 
 function changeMap(idx) {
+    if (idx === 1 && currentMap !== 1) playConviniSound(); // コンビニ入店音
     enemies.forEach(e => e.remove());
     enemies = [];
     treasures.forEach(t => { if(t) scene.remove(t); });
-    
     currentMap = idx;
     floorMat.color.set(levels[currentLevel-1].mapColor);
     altarGroup.visible = (idx === 1);
     if(idx === 1) { player.hp = player.maxHp; updateUI(); }
     if(treasures[idx]) scene.add(treasures[idx]);
-
-    // Simple transition noise
     const noise = document.getElementById('noise-overlay');
     noise.style.background = "rgba(255,255,255,0.2)";
     setTimeout(() => noise.style.background = "rgba(255,255,255,0)", 100);
@@ -249,24 +272,44 @@ function updateUI() {
     document.getElementById('t-count').innerText = player.saved;
 }
 
-// --- Main Loop ---
 function animate() {
     requestAnimationFrame(animate);
-    frame++;
-
     if(state === 'play') {
-        // Movement
         let mvX = 0, mvZ = 0;
         if(keys['ArrowUp'] || keys['KeyW']) mvZ -= 1;
         if(keys['ArrowDown'] || keys['KeyS']) mvZ += 1;
         if(keys['ArrowLeft'] || keys['KeyA']) mvX -= 1;
         if(keys['ArrowRight'] || keys['KeyD']) mvX += 1;
         
-        player.pos.x += mvX * 0.15;
-        player.pos.z += mvZ * 0.15;
-        playerMesh.position.copy(player.pos);
+        if (mvX !== 0 || mvZ !== 0) {
+            player.pos.x += mvX * 0.15;
+            player.pos.z += mvZ * 0.15;
+            const time = Date.now() * 0.01;
+            // ぴょこぴょこアニメ
+            pBody.position.y = 0.6 + Math.abs(Math.sin(time)) * 0.12;
+            pHead.position.y = 1.15 + Math.abs(Math.sin(time)) * 0.15;
+            pPack.position.y = 0.6 + Math.abs(Math.sin(time)) * 0.1;
+            lFoot.position.z = Math.sin(time) * 0.35;
+            rFoot.position.z = -Math.sin(time) * 0.35;
+            // 体を少し傾ける
+            playerGroup.rotation.y = Math.atan2(mvX, mvZ);
 
-        // Map Switching Logic
+            if (Date.now() - player.lastStep > 350) {
+                playStepSound();
+                createFootprint(player.pos);
+                player.lastStep = Date.now();
+            }
+        } else {
+            pBody.position.y = 0.6; pHead.position.y = 1.15;
+            lFoot.position.z = 0; rFoot.position.z = 0;
+        }
+
+        playerGroup.position.copy(player.pos);
+        footprints.forEach((fp, i) => {
+            fp.life -= 0.01; fp.mesh.material.opacity = fp.life * 0.4;
+            if(fp.life <= 0) { scene.remove(fp.mesh); footprints.splice(i, 1); }
+        });
+
         const limit = 19.8;
         if(currentMap === 0) {
             if(player.pos.z < -limit) { changeMap(1); player.pos.z = limit - 1; }
@@ -282,37 +325,30 @@ function animate() {
             player.pos.z = Math.max(-limit, Math.min(limit, player.pos.z));
         }
 
-        // Camera & Light
         camera.position.set(player.pos.x, 18, player.pos.z + 12);
         camera.lookAt(player.pos);
-        pLight.position.set(player.pos.x, 2, player.pos.z);
+        pLight.position.set(player.pos.x, 2.5, player.pos.z);
 
-        // Artifact Logic
-        let t = treasures[currentMap];
-        if(t && !player.hasT && player.pos.distanceTo(t.position) < 1.5) {
-            scene.remove(t); treasures[currentMap] = null;
+        if(treasures[currentMap] && !player.hasT && player.pos.distanceTo(treasures[currentMap].position) < 1.5) {
+            scene.remove(treasures[currentMap]); treasures[currentMap] = null;
             player.hasT = true;
-            playerMesh.material.emissive = new THREE.Color(0x00ffff);
+            pPack.material.emissive = new THREE.Color(0x00ffff);
+            pPack.material.emissiveIntensity = 2;
         }
 
-        // Shrine Deposit
         if(currentMap === 1 && player.hasT && player.pos.distanceTo(new THREE.Vector3(0,0,0)) < 2.5) {
-            player.hasT = false;
-            player.saved++;
-            playerMesh.material.emissive = new THREE.Color(0x000000);
+            player.hasT = false; player.saved++;
+            pPack.material.emissive = new THREE.Color(0x000000);
             updateUI();
             if(player.saved >= 3) {
                 if(currentLevel < 3) {
                     currentLevel++;
                     document.getElementById('noise-overlay').style.background = "white";
                     setTimeout(() => { initLevel(); document.getElementById('noise-overlay').style.background = "transparent"; }, 500);
-                } else {
-                    triggerEnding();
-                }
+                } else { triggerEnding(); }
             }
         }
 
-        // "Erotic Book" Message
         if(currentMap === 1 && player.pos.distanceTo(new THREE.Vector3(2,0, -2)) < 1.5) {
             document.getElementById('msg-layer').innerText = "えっちな本だ";
             document.getElementById('msg-layer').style.display = 'block';
@@ -320,10 +356,7 @@ function animate() {
             document.getElementById('msg-layer').style.display = 'none';
         }
 
-        // Enemies
-        if(currentMap !== 1 && enemies.length < levels[currentLevel-1].enemyCount && Math.random() < 0.01) {
-            enemies.push(new Nematode3D());
-        }
+        if(currentMap !== 1 && enemies.length < levels[currentLevel-1].enemyCount && Math.random() < 0.01) enemies.push(new Nematode3D());
         enemies.forEach(en => {
             en.update(player.pos);
             if(player.invul === 0 && en.group.position.distanceTo(player.pos) < 1.2) {
@@ -333,27 +366,19 @@ function animate() {
         });
         if(player.invul > 0) player.invul--;
     }
-
     renderer.render(scene, camera);
 }
 
 function triggerEnding() {
     state = 'ending';
     const overlay = document.getElementById('noise-overlay');
-    overlay.style.transition = "background 3s";
-    overlay.style.background = "white";
-    
+    overlay.style.transition = "background 3s"; overlay.style.background = "white";
     const endDiv = document.createElement('div');
-    endDiv.style.position = "absolute";
-    endDiv.style.top = "50%";
-    endDiv.style.left = "50%";
-    endDiv.style.transform = "translate(-50%, -50%)";
-    endDiv.style.color = "black";
-    endDiv.style.textAlign = "center";
-    endDiv.style.zIndex = "200";
+    endDiv.style.position = "absolute"; endDiv.style.top = "50%"; endDiv.style.left = "50%";
+    endDiv.style.transform = "translate(-50%, -50%)"; endDiv.style.color = "black";
+    endDiv.style.textAlign = "center"; endDiv.style.zIndex = "200";
     endDiv.innerHTML = "<h1 style='font-family:serif'>PURIFICATION COMPLETE</h1><p>THE WORLD IS RESTORED</p>";
     document.body.appendChild(endDiv);
-
     setTimeout(() => location.reload(), 6000);
 }
 
