@@ -3,14 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NEMATODE: Triple Crisis 3D - Investigator Edition</title>
+    <title>NEMATODE: Triple Crisis 3D - Mobile Edition</title>
     <style>
         body { margin: 0; background: #050505; overflow: hidden; font-family: 'MS Gothic', 'Courier New', monospace; color: #00ff00; touch-action: none; }
         #container { position: relative; width: 100vw; height: 100vh; }
         
-        #ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; font-size: 16px; text-shadow: 2px 2px #000; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 1s; }
-        #msg-layer { position: absolute; bottom: 120px; width: 100%; text-align: center; color: #fff; font-size: 16px; pointer-events: none; z-index: 50; text-shadow: 2px 2px #000; display: none; }
+        #ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; font-size: 14px; text-shadow: 2px 2px #000; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 1s; }
+        #msg-layer { position: absolute; bottom: 120px; width: 100%; text-align: center; color: #fff; font-size: 14px; pointer-events: none; z-index: 50; text-shadow: 2px 2px #000; display: none; }
         .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; box-shadow: inset 0 0 200px rgba(0,0,0,0.95); z-index: 5; }
+
+        /* スマホ用ジョイスティック */
+        #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(0, 255, 0, 0.1); border: 1px solid rgba(0, 255, 0, 0.3); border-radius: 50%; display: none; z-index: 100; touch-action: none; }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: rgba(0, 255, 0, 0.4); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+
+        /* ダメージフラッシュ */
+        #dmg-flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 0, 0, 0.5); pointer-events: none; z-index: 1000; opacity: 0; transition: opacity 0.1s; }
 
         #intro-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
         #intro-text { color: #ccc; font-size: 14px; line-height: 2.2; letter-spacing: 1px; max-width: 320px; text-align: left; display: none; padding: 20px; }
@@ -26,28 +33,32 @@
 </head>
 <body>
 
-<div id="intro-screen" onclick="handleIntroClick()">
-    <div id="click-to-start">[ TAP TO INITIALIZE SYSTEM ]</div>
-    <div id="intro-text">
-        あるとき、月から得体のしれぬものが居住区に落ち、なかから蠢く線虫が現れ、人々の姿が消えた。古書によれば、残された「緑の祭壇」に遺物を集めることで線虫らを浄化できると記述がある。記録をもとに調査員は向かった。
+<div id="container">
+    <div id="intro-screen" onclick="handleIntroClick()">
+        <div id="click-to-start">[ TAP TO INITIALIZE SYSTEM ]</div>
+        <div id="intro-text">
+            あるとき、月から得体のしれぬものが居住区に落ち、なかから蠢く線虫が現れ、人々の姿が消えた。古書によれば、残された「緑の祭壇」に遺物を集めることで線虫らを浄化できると記述がある。記録をもとに調査員は向かった。
+        </div>
     </div>
-</div>
 
-<div id="start-screen">
-    <h1 id="logo"><span class="logo-char">N</span><span class="logo-char">E</span><span class="logo-char">M</span><span class="logo-char">A</span><span class="logo-char">T</span><span class="logo-char">O</span><span class="logo-char">D</span><span class="logo-char">E</span></h1>
-    <p style="font-size:11px; color:#aaa; text-align: left;">- Explore and collect artifacts.<br>- Enter the shrine to restore HP.<br><span style="color:#ff0000;">- Complete 3 levels to purify.</span></p>
-    <button onclick="startGame()" style="padding:12px 25px; cursor:pointer; background:#111; color:#ff0000; border:1px solid #ff0000; font-weight:bold;">[ START INVESTIGATION ]</button>
-</div>
+    <div id="start-screen">
+        <h1 id="logo"><span class="logo-char">N</span><span class="logo-char">E</span><span class="logo-char">M</span><span class="logo-char">A</span><span class="logo-char">T</span><span class="logo-char">O</span><span class="logo-char">D</span><span class="logo-char">E</span></h1>
+        <p style="font-size:11px; color:#aaa; text-align: left;">- Explore and collect artifacts.<br>- Enter the shrine to restore HP.<br><span style="color:#ff0000;">- Complete 3 levels to purify.</span></p>
+        <button onclick="startGame()" style="padding:12px 25px; cursor:pointer; background:#111; color:#ff0000; border:1px solid #ff0000; font-weight:bold;">[ START INVESTIGATION ]</button>
+    </div>
 
-<div id="ui">
-    <div id="hearts" style="color:#ff0044;">■■</div>
-    <div id="status-text">LEVEL 1</div>
-    <div>ARTIFACT: <span id="t-count">0</span>/3</div>
-</div>
+    <div id="ui">
+        <div id="hearts" style="color:#ff0044;">■■</div>
+        <div id="status-text">LEVEL 1</div>
+        <div>ARTIFACT: <span id="t-count">0</span>/3</div>
+    </div>
 
-<div id="msg-layer"></div>
-<div id="noise-overlay"></div>
-<div class="vignette"></div>
+    <div id="joystick-base"><div id="joystick-stick"></div></div>
+    <div id="dmg-flash"></div>
+    <div id="msg-layer"></div>
+    <div id="noise-overlay"></div>
+    <div class="vignette"></div>
+</div>
 
 <script type="importmap">
     { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
@@ -71,6 +82,7 @@ let enemies = [];
 let treasures = [null, null, null, null, null];
 let footprints = [];
 let audioCtx = null;
+let touchInput = { x: 0, y: 0, active: false };
 
 // --- Three.js Setup ---
 const scene = new THREE.Scene();
@@ -95,21 +107,16 @@ scene.add(grid);
 
 // --- Investigator Character Design ---
 const playerGroup = new THREE.Group();
-// 胴体
 const pBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.4), new THREE.MeshStandardMaterial({ color: 0x006600 }));
 pBody.position.y = 0.6;
-// 頭部
 const pHead = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
 pHead.position.y = 1.15;
-// バックパック (遺物回収装置)
 const pPack = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.3), new THREE.MeshStandardMaterial({ color: 0x003300 }));
 pPack.position.set(0, 0.6, -0.3);
-// 足
 const lFoot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 0.3), new THREE.MeshStandardMaterial({ color: 0x111111 }));
 const rFoot = lFoot.clone();
 lFoot.position.set(-0.2, 0.1, 0);
 rFoot.position.set(0.2, 0.1, 0);
-
 playerGroup.add(pBody, pHead, pPack, lFoot, rFoot);
 scene.add(playerGroup);
 
@@ -123,7 +130,7 @@ book.position.set(2, 0.2, -2);
 altarGroup.add(altarBase, altarCore, book);
 scene.add(altarGroup);
 
-// --- Logic ---
+// --- Classes & Helpers ---
 class Nematode3D {
     constructor() {
         this.group = new THREE.Group();
@@ -162,8 +169,9 @@ function createFootprint(pos) {
     footprints.push({ mesh: fp, life: 1.0 });
 }
 
-// --- Audio Engine ---
+// --- Audio ---
 function playTone(freq, type, start, duration, vol=0.1) {
+    if(!audioCtx) return;
     const osc = audioCtx.createOscillator();
     const g = audioCtx.createGain();
     osc.type = type;
@@ -175,24 +183,30 @@ function playTone(freq, type, start, duration, vol=0.1) {
     osc.stop(audioCtx.currentTime + start + duration);
 }
 
-function playStepSound() {
-    if (!audioCtx) return;
-    playTone(60, 'sine', 0, 0.1, 0.2); // 低い足音
+function playDmgSound() {
+    playTone(100, 'sawtooth', 0, 0.2, 0.2);
+    playTone(40, 'sine', 0, 0.3, 0.3);
 }
 
-function playConviniSound() {
-    if (!audioCtx) return;
-    // チャラリラリラリン♪ (FamilyMart Style Melody)
-    const melody = [
-        {f: 587.33, d: 0.2}, {f: 440.00, d: 0.2}, {f: 392.00, d: 0.2}, {f: 440.00, d: 0.2}, 
-        {f: 493.88, d: 0.2}, {f: 587.33, d: 0.4}, {f: 440.00, d: 0.2}, {f: 493.88, d: 0.2}, 
-        {f: 440.00, d: 0.2}, {f: 392.00, d: 0.2}, {f: 587.33, d: 0.4}
-    ];
-    let time = 0;
-    melody.forEach(m => {
-        playTone(m.f, 'square', time, m.d, 0.05);
-        time += m.d;
-    });
+// --- Joystick Logic ---
+const joyBase = document.getElementById('joystick-base');
+const joyStick = document.getElementById('joystick-stick');
+joyBase.addEventListener('touchstart', (e) => { touchInput.active = true; updateJoy(e); });
+joyBase.addEventListener('touchmove', (e) => { e.preventDefault(); updateJoy(e); });
+joyBase.addEventListener('touchend', () => { touchInput.active = false; touchInput.x = 0; touchInput.y = 0; joyStick.style.transform = 'translate(-50%, -50%)'; });
+
+function updateJoy(e) {
+    const touch = e.touches[0];
+    const rect = joyBase.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = touch.clientX - centerX;
+    const dy = touch.clientY - centerY;
+    const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
+    const angle = Math.atan2(dy, dx);
+    touchInput.x = (Math.cos(angle) * dist) / 40;
+    touchInput.y = (Math.sin(angle) * dist) / 40;
+    joyStick.style.transform = `translate(calc(-50% + ${Math.cos(angle) * dist}px), calc(-50% + ${Math.sin(angle) * dist}px))`;
 }
 
 // --- Interaction ---
@@ -214,20 +228,12 @@ function showTitle() {
     state = 'title';
     document.getElementById('intro-screen').style.display = 'none';
     document.getElementById('start-screen').style.display = 'block';
-    setInterval(() => {
-        if (state !== "title") return;
-        if (Math.random() < 0.1) {
-            const chars = document.querySelectorAll('.logo-char');
-            const target = chars[Math.floor(Math.random() * chars.length)];
-            target.classList.add('blink-off');
-            setTimeout(() => target.classList.remove('blink-off'), 100);
-        }
-    }, 100);
 }
 
 window.startGame = () => {
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('ui').style.opacity = '1';
+    joyBase.style.display = 'block';
     initLevel();
 };
 
@@ -252,7 +258,11 @@ function spawnTreasures() {
 }
 
 function changeMap(idx) {
-    if (idx === 1 && currentMap !== 1) playConviniSound(); // コンビニ入店音
+    if (idx === 1 && currentMap !== 1) {
+        // Convini Melody
+        const m = [587, 440, 392, 440, 493, 587, 440, 493, 440, 392, 587];
+        m.forEach((f, i) => playTone(f, 'square', i*0.2, 0.15, 0.05));
+    }
     enemies.forEach(e => e.remove());
     enemies = [];
     treasures.forEach(t => { if(t) scene.remove(t); });
@@ -261,15 +271,33 @@ function changeMap(idx) {
     altarGroup.visible = (idx === 1);
     if(idx === 1) { player.hp = player.maxHp; updateUI(); }
     if(treasures[idx]) scene.add(treasures[idx]);
-    const noise = document.getElementById('noise-overlay');
-    noise.style.background = "rgba(255,255,255,0.2)";
-    setTimeout(() => noise.style.background = "rgba(255,255,255,0)", 100);
 }
 
 function updateUI() {
-    document.getElementById('hearts').innerText = "■".repeat(player.hp);
+    document.getElementById('hearts').innerText = "■".repeat(Math.max(0, player.hp));
     document.getElementById('status-text').innerText = levels[currentLevel-1].name;
     document.getElementById('t-count').innerText = player.saved;
+}
+
+function triggerDamage() {
+    player.hp--;
+    player.invul = 90;
+    updateUI();
+    playDmgSound();
+    
+    // 赤フラッシュ
+    const df = document.getElementById('dmg-flash');
+    df.style.opacity = '1';
+    setTimeout(() => df.style.opacity = '0', 150);
+
+    // ノイズ演出
+    const noise = document.getElementById('noise-overlay');
+    noise.style.background = "rgba(255,0,0,0.3)";
+    setTimeout(() => noise.style.background = "transparent", 200);
+
+    if(player.hp <= 0) {
+        setTimeout(() => location.reload(), 500);
+    }
 }
 
 function animate() {
@@ -281,30 +309,39 @@ function animate() {
         if(keys['ArrowLeft'] || keys['KeyA']) mvX -= 1;
         if(keys['ArrowRight'] || keys['KeyD']) mvX += 1;
         
+        // Touch Input Override
+        if (touchInput.active) {
+            mvX = touchInput.x;
+            mvZ = touchInput.y;
+        }
+
         if (mvX !== 0 || mvZ !== 0) {
             player.pos.x += mvX * 0.15;
             player.pos.z += mvZ * 0.15;
             const time = Date.now() * 0.01;
-            // ぴょこぴょこアニメ
             pBody.position.y = 0.6 + Math.abs(Math.sin(time)) * 0.12;
             pHead.position.y = 1.15 + Math.abs(Math.sin(time)) * 0.15;
-            pPack.position.y = 0.6 + Math.abs(Math.sin(time)) * 0.1;
             lFoot.position.z = Math.sin(time) * 0.35;
             rFoot.position.z = -Math.sin(time) * 0.35;
-            // 体を少し傾ける
             playerGroup.rotation.y = Math.atan2(mvX, mvZ);
 
             if (Date.now() - player.lastStep > 350) {
-                playStepSound();
+                playTone(60, 'sine', 0, 0.1, 0.2);
                 createFootprint(player.pos);
                 player.lastStep = Date.now();
             }
-        } else {
-            pBody.position.y = 0.6; pHead.position.y = 1.15;
-            lFoot.position.z = 0; rFoot.position.z = 0;
         }
 
         playerGroup.position.copy(player.pos);
+        
+        // ダメージ中の点滅
+        if (player.invul > 0) {
+            playerGroup.visible = (Math.floor(Date.now() / 50) % 2 === 0);
+            player.invul--;
+        } else {
+            playerGroup.visible = true;
+        }
+
         footprints.forEach((fp, i) => {
             fp.life -= 0.01; fp.mesh.material.opacity = fp.life * 0.4;
             if(fp.life <= 0) { scene.remove(fp.mesh); footprints.splice(i, 1); }
@@ -349,22 +386,13 @@ function animate() {
             }
         }
 
-        if(currentMap === 1 && player.pos.distanceTo(new THREE.Vector3(2,0, -2)) < 1.5) {
-            document.getElementById('msg-layer').innerText = "えっちな本だ";
-            document.getElementById('msg-layer').style.display = 'block';
-        } else {
-            document.getElementById('msg-layer').style.display = 'none';
-        }
-
         if(currentMap !== 1 && enemies.length < levels[currentLevel-1].enemyCount && Math.random() < 0.01) enemies.push(new Nematode3D());
         enemies.forEach(en => {
             en.update(player.pos);
             if(player.invul === 0 && en.group.position.distanceTo(player.pos) < 1.2) {
-                player.hp--; player.invul = 60; updateUI();
-                if(player.hp <= 0) location.reload();
+                triggerDamage();
             }
         });
-        if(player.invul > 0) player.invul--;
     }
     renderer.render(scene, camera);
 }
@@ -377,12 +405,19 @@ function triggerEnding() {
     endDiv.style.position = "absolute"; endDiv.style.top = "50%"; endDiv.style.left = "50%";
     endDiv.style.transform = "translate(-50%, -50%)"; endDiv.style.color = "black";
     endDiv.style.textAlign = "center"; endDiv.style.zIndex = "200";
-    endDiv.innerHTML = "<h1 style='font-family:serif'>PURIFICATION COMPLETE</h1><p>THE WORLD IS RESTORED</p>";
+    endDiv.innerHTML = "<h1>PURIFICATION COMPLETE</h1><p>THE WORLD IS RESTORED</p>";
     document.body.appendChild(endDiv);
     setTimeout(() => location.reload(), 6000);
 }
 
 animate();
+
+// Resize
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
