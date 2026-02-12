@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEMATODE: Triple Crisis 3D - Ultimate Edition</title>
+    <style>
+        body { margin: 0; background: #050505; overflow: hidden; font-family: 'MS Gothic', 'Courier New', monospace; color: #00ff00; touch-action: none; }
+        #container { position: relative; width: 100vw; height: 100vh; }
+        
+        /* UI Layers */
+        #ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; font-size: 16px; text-shadow: 2px 2px #000; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 1s; }
+        #msg-layer { position: absolute; bottom: 120px; width: 100%; text-align: center; color: #fff; font-size: 16px; pointer-events: none; z-index: 50; text-shadow: 2px 2px #000; display: none; }
+        .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; box-shadow: inset 0 0 200px rgba(0,0,0,0.95); z-index: 5; }
+
+        /* Intro Screen */
+        #intro-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
+        #intro-text { color: #ccc; font-size: 14px; line-height: 2.2; letter-spacing: 1px; max-width: 320px; text-align: left; display: none; padding: 20px; }
+        #click-to-start { color: #00ff00; font-size: 14px; border: 1px solid #00ff00; padding: 10px 20px; background: rgba(0,255,0,0.1); }
+        
+        /* Title Screen */
+        #start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); padding: 40px; text-align: center; z-index: 100; border: 1px solid #ff0000; width: 280px; display: none; }
+        #logo { letter-spacing: 5px; border-bottom: 1px solid #ff0000; padding-bottom: 10px; color: #ff0000; }
+        .logo-char { display: inline-block; transition: opacity 0.05s; }
+        .blink-off { opacity: 0.1; }
+
+        /* Transition Overlay */
+        #noise-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0); pointer-events: none; z-index: 150; }
+    </style>
+</head>
+<body>
+
+<div id="intro-screen" onclick="handleIntroClick()">
+    <div id="click-to-start">[ TAP TO INITIALIZE SYSTEM ]</div>
+    <div id="intro-text">
+        あるとき、月から得体のしれぬものが居住区に落ち、なかから蠢く線虫が現れ、人々の姿が消えた。古書によれば、残された「緑の祭壇」に遺物を集めることで線虫らを浄化できると記述がある。記録をもとに調査員は向かった。
+    </div>
+</div>
+
+<div id="start-screen">
+    <h1 id="logo"><span class="logo-char">N</span><span class="logo-char">E</span><span class="logo-char">M</span><span class="logo-char">A</span><span class="logo-char">T</span><span class="logo-char">O</span><span class="logo-char">D</span><span class="logo-char">E</span></h1>
+    <p style="font-size:11px; color:#aaa; text-align: left;">- Explore and collect artifacts.<br>- Enter the shrine to restore HP.<br><span style="color:#ff0000;">- Complete 3 levels to purify.</span></p>
+    <button onclick="startGame()" style="padding:12px 25px; cursor:pointer; background:#111; color:#ff0000; border:1px solid #ff0000; font-weight:bold;">[ START INVESTIGATION ]</button>
+</div>
+
+<div id="ui">
+    <div id="hearts" style="color:#ff0044;">■■</div>
+    <div id="status-text">LEVEL 1</div>
+    <div>ARTIFACT: <span id="t-count">0</span>/3</div>
+</div>
+
+<div id="msg-layer"></div>
+<div id="noise-overlay"></div>
+<div class="vignette"></div>
+
+<script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// --- Game Settings ---
+const levels = [
+    { name: "LEVEL 1: GREEN DEPTHS", mapColor: 0x0a1a0a, enemyColor: 0x00ff66, enemyCount: 2 },
+    { name: "LEVEL 2: BLOOD LAB", mapColor: 0x220808, enemyColor: 0xff3333, enemyCount: 3 },
+    { name: "LEVEL 3: CYAN ABYSS", mapColor: 0x081a22, enemyColor: 0x00ccff, enemyCount: 4 }
+];
+
+let state = 'intro';
+let currentLevel = 1;
+let currentMap = 0; // 0:Center, 1:North, 2:East, 3:West, 4:South
+let player = { hp: 2, maxHp: 2, hasT: false, saved: 0, invul: 0, pos: new THREE.Vector3(0, 0.5, 5) };
+let enemies = [];
+let treasures = [null, null, null, null, null];
+let frame = 0;
+
+// --- Three.js Setup ---
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Lighting
+const ambient = new THREE.AmbientLight(0xffffff, 0.05);
+scene.add(ambient);
+const pLight = new THREE.PointLight(0x00ff00, 5, 20); 
+scene.add(pLight);
+
+// World Map (Grid Floor)
+const floorGeo = new THREE.PlaneGeometry(40, 40);
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x050505, wireframe: false });
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
+
+// Border Lines (切替位置を分かりやすく)
+const grid = new THREE.GridHelper(40, 10, 0x333333, 0x111111);
+grid.position.y = 0.05;
+scene.add(grid);
+
+// Portal markers
+function createPortal(x, z, color) {
+    const geo = new THREE.BoxGeometry(4, 0.1, 1);
+    const mat = new THREE.MeshBasicMaterial({ color: color, transparent:true, opacity:0.3 });
+    const p = new THREE.Mesh(geo, mat);
+    p.position.set(x, 0, z);
+    if(x !== 0) p.rotation.y = Math.PI/2;
+    return p;
+}
+const portals = [
+    createPortal(0, -19.5, 0x00ff00), // North
+    createPortal(19.5, 0, 0x00ff00),  // East
+    createPortal(-19.5, 0, 0x00ff00), // West
+    createPortal(0, 19.5, 0x00ff00)   // South
+];
+portals.forEach(p => scene.add(p));
+
+// Player
+const playerMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 0.8, 0.8),
+    new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+);
+scene.add(playerMesh);
+
+// Altar (Map 1)
+const altarGroup = new THREE.Group();
+const altarBase = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), new THREE.MeshStandardMaterial({color:0x333333}));
+const altarCore = new THREE.Mesh(new THREE.BoxGeometry(2, 0.4, 2), new THREE.MeshStandardMaterial({color:0x00a040}));
+altarCore.position.y = 0.2;
+const book = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.4), new THREE.MeshStandardMaterial({color:0x8b4513}));
+book.position.set(2, 0.2, -2);
+altarGroup.add(altarBase, altarCore, book);
+scene.add(altarGroup);
+
+// --- Logic Classes ---
+class Nematode3D {
+    constructor() {
+        this.group = new THREE.Group();
+        this.segs = [];
+        const config = levels[currentLevel-1];
+        for(let i=0; i<10; i++) {
+            const s = new THREE.Mesh(
+                new THREE.SphereGeometry(0.4 - i*0.03, 8, 8),
+                new THREE.MeshStandardMaterial({ color: i===0?0xffffff:config.enemyColor, emissive: config.enemyColor, emissiveIntensity: 0.5 })
+            );
+            this.group.add(s);
+            this.segs.push(s);
+        }
+        this.group.position.set(Math.random()*30-15, 0.5, -20);
+        scene.add(this.group);
+        this.phase = Math.random()*10;
+    }
+    update(target) {
+        let speed = 0.04 + (currentLevel * 0.02);
+        const dir = new THREE.Vector3().subVectors(target, this.group.position).normalize();
+        this.group.position.add(dir.multiplyScalar(speed));
+        this.phase += 0.2;
+        this.segs[0].position.set(Math.sin(this.phase)*0.5, Math.cos(this.phase)*0.5, 0);
+        for(let i=1; i<this.segs.length; i++) this.segs[i].position.lerp(this.segs[i-1].position, 0.35);
+    }
+    remove() { scene.remove(this.group); }
+}
+
+// --- Interaction & Input ---
+const keys = {};
+window.onkeydown = e => keys[e.code] = true;
+window.onkeyup = e => keys[e.code] = false;
+
+window.handleIntroClick = () => {
+    if(state !== 'intro') return;
+    const txt = document.getElementById('intro-text');
+    const btn = document.getElementById('click-to-start');
+    if(btn.style.display !== 'none') {
+        btn.style.display = 'none';
+        txt.style.display = 'block';
+    } else {
+        showTitle();
+    }
+};
+
+function showTitle() {
+    state = 'title';
+    document.getElementById('intro-screen').style.display = 'none';
+    document.getElementById('start-screen').style.display = 'block';
+    setInterval(updateLogoBlink, 100);
+}
+
+function updateLogoBlink() {
+    if (state !== "title") return;
+    if (Math.random() < 0.1) {
+        const chars = document.querySelectorAll('.logo-char');
+        const target = chars[Math.floor(Math.random() * chars.length)];
+        target.classList.add('blink-off');
+        setTimeout(() => target.classList.remove('blink-off'), 50 + Math.random() * 100);
+    }
+}
+
+window.startGame = () => {
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('ui').style.opacity = '1';
+    initLevel();
+};
+
+function initLevel() {
+    state = 'play';
+    changeMap(0);
+    player.hp = player.maxHp;
+    player.saved = 0;
+    player.hasT = false;
+    spawnTreasures();
+    updateUI();
+}
+
+function spawnTreasures() {
+    treasures.forEach(t => { if(t) scene.remove(t); });
+    treasures = [null, null, null, null, null];
+    for(let i=2; i<=4; i++) {
+        const t = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.5),
+            new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff})
+        );
+        t.position.set(Math.random()*26-13, 0.6, Math.random()*26-13);
+        treasures[i] = t;
+    }
+}
+
+function changeMap(idx) {
+    enemies.forEach(e => e.remove());
+    enemies = [];
+    treasures.forEach(t => { if(t) scene.remove(t); });
+    
+    currentMap = idx;
+    floorMat.color.set(levels[currentLevel-1].mapColor);
+    altarGroup.visible = (idx === 1);
+    if(idx === 1) { player.hp = player.maxHp; updateUI(); }
+    if(treasures[idx]) scene.add(treasures[idx]);
+
+    // Simple transition noise
+    const noise = document.getElementById('noise-overlay');
+    noise.style.background = "rgba(255,255,255,0.2)";
+    setTimeout(() => noise.style.background = "rgba(255,255,255,0)", 100);
+}
+
+function updateUI() {
+    document.getElementById('hearts').innerText = "■".repeat(player.hp);
+    document.getElementById('status-text').innerText = levels[currentLevel-1].name;
+    document.getElementById('t-count').innerText = player.saved;
+}
+
+// --- Main Loop ---
+function animate() {
+    requestAnimationFrame(animate);
+    frame++;
+
+    if(state === 'play') {
+        // Movement
+        let mvX = 0, mvZ = 0;
+        if(keys['ArrowUp'] || keys['KeyW']) mvZ -= 1;
+        if(keys['ArrowDown'] || keys['KeyS']) mvZ += 1;
+        if(keys['ArrowLeft'] || keys['KeyA']) mvX -= 1;
+        if(keys['ArrowRight'] || keys['KeyD']) mvX += 1;
+        
+        player.pos.x += mvX * 0.15;
+        player.pos.z += mvZ * 0.15;
+        playerMesh.position.copy(player.pos);
+
+        // Map Switching Logic
+        const limit = 19.8;
+        if(currentMap === 0) {
+            if(player.pos.z < -limit) { changeMap(1); player.pos.z = limit - 1; }
+            else if(player.pos.z > limit) { changeMap(4); player.pos.z = -limit + 1; }
+            else if(player.pos.x < -limit) { changeMap(3); player.pos.x = limit - 1; }
+            else if(player.pos.x > limit) { changeMap(2); player.pos.x = -limit + 1; }
+        } else {
+            if(currentMap === 1 && player.pos.z > limit) { changeMap(0); player.pos.z = -limit + 1; }
+            else if(currentMap === 4 && player.pos.z < -limit) { changeMap(0); player.pos.z = limit - 1; }
+            else if(currentMap === 3 && player.pos.x > limit) { changeMap(0); player.pos.x = -limit + 1; }
+            else if(currentMap === 2 && player.pos.x < -limit) { changeMap(0); player.pos.x = limit - 1; }
+            player.pos.x = Math.max(-limit, Math.min(limit, player.pos.x));
+            player.pos.z = Math.max(-limit, Math.min(limit, player.pos.z));
+        }
+
+        // Camera & Light
+        camera.position.set(player.pos.x, 18, player.pos.z + 12);
+        camera.lookAt(player.pos);
+        pLight.position.set(player.pos.x, 2, player.pos.z);
+
+        // Artifact Logic
+        let t = treasures[currentMap];
+        if(t && !player.hasT && player.pos.distanceTo(t.position) < 1.5) {
+            scene.remove(t); treasures[currentMap] = null;
+            player.hasT = true;
+            playerMesh.material.emissive = new THREE.Color(0x00ffff);
+        }
+
+        // Shrine Deposit
+        if(currentMap === 1 && player.hasT && player.pos.distanceTo(new THREE.Vector3(0,0,0)) < 2.5) {
+            player.hasT = false;
+            player.saved++;
+            playerMesh.material.emissive = new THREE.Color(0x000000);
+            updateUI();
+            if(player.saved >= 3) {
+                if(currentLevel < 3) {
+                    currentLevel++;
+                    document.getElementById('noise-overlay').style.background = "white";
+                    setTimeout(() => { initLevel(); document.getElementById('noise-overlay').style.background = "transparent"; }, 500);
+                } else {
+                    triggerEnding();
+                }
+            }
+        }
+
+        // "Erotic Book" Message
+        if(currentMap === 1 && player.pos.distanceTo(new THREE.Vector3(2,0, -2)) < 1.5) {
+            document.getElementById('msg-layer').innerText = "えっちな本だ";
+            document.getElementById('msg-layer').style.display = 'block';
+        } else {
+            document.getElementById('msg-layer').style.display = 'none';
+        }
+
+        // Enemies
+        if(currentMap !== 1 && enemies.length < levels[currentLevel-1].enemyCount && Math.random() < 0.01) {
+            enemies.push(new Nematode3D());
+        }
+        enemies.forEach(en => {
+            en.update(player.pos);
+            if(player.invul === 0 && en.group.position.distanceTo(player.pos) < 1.2) {
+                player.hp--; player.invul = 60; updateUI();
+                if(player.hp <= 0) location.reload();
+            }
+        });
+        if(player.invul > 0) player.invul--;
+    }
+
+    renderer.render(scene, camera);
+}
+
+function triggerEnding() {
+    state = 'ending';
+    const overlay = document.getElementById('noise-overlay');
+    overlay.style.transition = "background 3s";
+    overlay.style.background = "white";
+    
+    const endDiv = document.createElement('div');
+    endDiv.style.position = "absolute";
+    endDiv.style.top = "50%";
+    endDiv.style.left = "50%";
+    endDiv.style.transform = "translate(-50%, -50%)";
+    endDiv.style.color = "black";
+    endDiv.style.textAlign = "center";
+    endDiv.style.zIndex = "200";
+    endDiv.innerHTML = "<h1 style='font-family:serif'>PURIFICATION COMPLETE</h1><p>THE WORLD IS RESTORED</p>";
+    document.body.appendChild(endDiv);
+
+    setTimeout(() => location.reload(), 6000);
+}
+
+animate();
+</script>
+</body>
+</html>
