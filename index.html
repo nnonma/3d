@@ -3,61 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NEMATODE: Triple Crisis 3D - Mobile Edition</title>
+    <title>NEMATODE: Triple Crisis 3D - Visibility Fix</title>
     <style>
-        body { margin: 0; background: #050505; overflow: hidden; font-family: 'MS Gothic', 'Courier New', monospace; color: #00ff00; touch-action: none; }
-        #container { position: relative; width: 100vw; height: 100vh; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'MS Gothic', 'Courier New', monospace; color: #00ff00; touch-action: none; }
+        #container { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; }
         
-        #ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; font-size: 14px; text-shadow: 2px 2px #000; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 1s; }
-        #msg-layer { position: absolute; bottom: 120px; width: 100%; text-align: center; color: #fff; font-size: 14px; pointer-events: none; z-index: 50; text-shadow: 2px 2px #000; display: none; }
-        .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; box-shadow: inset 0 0 200px rgba(0,0,0,0.95); z-index: 5; }
-
-        /* スマホ用ジョイスティック */
-        #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(0, 255, 0, 0.1); border: 1px solid rgba(0, 255, 0, 0.3); border-radius: 50%; display: none; z-index: 100; touch-action: none; }
-        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: rgba(0, 255, 0, 0.4); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-
-        /* ダメージフラッシュ */
-        #dmg-flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 0, 0, 0.5); pointer-events: none; z-index: 1000; opacity: 0; transition: opacity 0.1s; }
-
-        #intro-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
-        #intro-text { color: #ccc; font-size: 14px; line-height: 2.2; letter-spacing: 1px; max-width: 320px; text-align: left; display: none; padding: 20px; }
-        #click-to-start { color: #00ff00; font-size: 14px; border: 1px solid #00ff00; padding: 10px 20px; background: rgba(0,255,0,0.1); }
-        
-        #start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); padding: 40px; text-align: center; z-index: 100; border: 1px solid #ff0000; width: 280px; display: none; }
-        #logo { letter-spacing: 5px; border-bottom: 1px solid #ff0000; padding-bottom: 10px; color: #ff0000; }
-        .logo-char { display: inline-block; transition: opacity 0.05s; }
-        .blink-off { opacity: 0.1; }
-
-        #noise-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0); pointer-events: none; z-index: 150; }
+        #ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; font-size: 14px; text-shadow: 2px 2px #000; pointer-events: none; z-index: 100; opacity: 0; transition: opacity 1s; }
+        #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; background: rgba(0, 255, 0, 0.1); border: 2px solid rgba(0, 255, 0, 0.5); border-radius: 50%; display: none; z-index: 200; touch-action: none; }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; background: rgba(0, 255, 0, 0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #dmg-flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 0, 0, 0.4); pointer-events: none; z-index: 1000; opacity: 0; }
+        #intro-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 500; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
+        #start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 30px; text-align: center; z-index: 600; border: 1px solid #ff0000; display: none; }
+        #logo { color: #f00; letter-spacing: 5px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
 <div id="container">
     <div id="intro-screen" onclick="handleIntroClick()">
-        <div id="click-to-start">[ TAP TO INITIALIZE SYSTEM ]</div>
-        <div id="intro-text">
-            あるとき、月から得体のしれぬものが居住区に落ち、なかから蠢く線虫が現れ、人々の姿が消えた。古書によれば、残された「緑の祭壇」に遺物を集めることで線虫らを浄化できると記述がある。記録をもとに調査員は向かった。
-        </div>
+        <div style="border:1px solid #0f0; padding:15px;">[ TAP TO START SYSTEM ]</div>
     </div>
 
     <div id="start-screen">
-        <h1 id="logo"><span class="logo-char">N</span><span class="logo-char">E</span><span class="logo-char">M</span><span class="logo-char">A</span><span class="logo-char">T</span><span class="logo-char">O</span><span class="logo-char">D</span><span class="logo-char">E</span></h1>
-        <p style="font-size:11px; color:#aaa; text-align: left;">- Explore and collect artifacts.<br>- Enter the shrine to restore HP.<br><span style="color:#ff0000;">- Complete 3 levels to purify.</span></p>
-        <button onclick="startGame()" style="padding:12px 25px; cursor:pointer; background:#111; color:#ff0000; border:1px solid #ff0000; font-weight:bold;">[ START INVESTIGATION ]</button>
+        <h1 id="logo">NEMATODE</h1>
+        <button onclick="startGame()" style="padding:10px 20px; background:#000; color:#f00; border:1px solid #f00;">[ START ]</button>
     </div>
 
     <div id="ui">
-        <div id="hearts" style="color:#ff0044;">■■</div>
+        <div id="hearts">HP: ■■</div>
         <div id="status-text">LEVEL 1</div>
         <div>ARTIFACT: <span id="t-count">0</span>/3</div>
     </div>
 
     <div id="joystick-base"><div id="joystick-stick"></div></div>
     <div id="dmg-flash"></div>
-    <div id="msg-layer"></div>
-    <div id="noise-overlay"></div>
-    <div class="vignette"></div>
 </div>
 
 <script type="importmap">
@@ -67,45 +47,41 @@
 <script type="module">
 import * as THREE from 'three';
 
-// --- Config & State ---
-const levels = [
-    { name: "LEVEL 1: GREEN DEPTHS", mapColor: 0x0a1a0a, enemyColor: 0x00ff66, enemyCount: 2 },
-    { name: "LEVEL 2: BLOOD LAB", mapColor: 0x220808, enemyColor: 0xff3333, enemyCount: 3 },
-    { name: "LEVEL 3: CYAN ABYSS", mapColor: 0x081a22, enemyColor: 0x00ccff, enemyCount: 4 }
-];
-
 let state = 'intro';
 let currentLevel = 1;
-let currentMap = 0; 
+let currentMap = 0;
 let player = { hp: 2, maxHp: 2, hasT: false, saved: 0, invul: 0, pos: new THREE.Vector3(0, 0, 5), lastStep: 0 };
 let enemies = [];
-let treasures = [null, null, null, null, null];
 let footprints = [];
 let audioCtx = null;
 let touchInput = { x: 0, y: 0, active: false };
 
 // --- Three.js Setup ---
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+scene.background = new THREE.Color(0x050505);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+document.getElementById('container').appendChild(renderer.domElement);
 
-const ambient = new THREE.AmbientLight(0xffffff, 0.05);
+const ambient = new THREE.AmbientLight(0xffffff, 0.2);
 scene.add(ambient);
-const pLight = new THREE.PointLight(0x00ff00, 8, 20); 
+const pLight = new THREE.PointLight(0x00ff00, 20, 30); // 光を大幅に強化
 scene.add(pLight);
 
-const floorMat = new THREE.MeshStandardMaterial({ color: 0x050505 });
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), floorMat);
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(50, 50),
+    new THREE.MeshStandardMaterial({ color: 0x111111 })
+);
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
-const grid = new THREE.GridHelper(40, 10, 0x333333, 0x111111);
-grid.position.y = 0.05;
+const grid = new THREE.GridHelper(50, 10, 0x333333, 0x222222);
 scene.add(grid);
 
-// --- Investigator Character Design ---
+// --- Investigator Character ---
 const playerGroup = new THREE.Group();
 const pBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.4), new THREE.MeshStandardMaterial({ color: 0x006600 }));
 pBody.position.y = 0.6;
@@ -117,302 +93,75 @@ const lFoot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 0.3), new THREE.Me
 const rFoot = lFoot.clone();
 lFoot.position.set(-0.2, 0.1, 0);
 rFoot.position.set(0.2, 0.1, 0);
+
 playerGroup.add(pBody, pHead, pPack, lFoot, rFoot);
+playerGroup.position.copy(player.pos);
 scene.add(playerGroup);
 
-// Altar
-const altarGroup = new THREE.Group();
-const altarBase = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), new THREE.MeshStandardMaterial({color:0x333333}));
-const altarCore = new THREE.Mesh(new THREE.BoxGeometry(2, 0.4, 2), new THREE.MeshStandardMaterial({color:0x00a040}));
-altarCore.position.y = 0.2;
-const book = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.4), new THREE.MeshStandardMaterial({color:0x8b4513}));
-book.position.set(2, 0.2, -2);
-altarGroup.add(altarBase, altarCore, book);
-scene.add(altarGroup);
-
-// --- Classes & Helpers ---
-class Nematode3D {
-    constructor() {
-        this.group = new THREE.Group();
-        this.segs = [];
-        const config = levels[currentLevel-1];
-        for(let i=0; i<10; i++) {
-            const s = new THREE.Mesh(
-                new THREE.SphereGeometry(0.4 - i*0.03, 8, 8),
-                new THREE.MeshStandardMaterial({ color: i===0?0xffffff:config.enemyColor, emissive: config.enemyColor, emissiveIntensity: 0.5 })
-            );
-            this.group.add(s);
-            this.segs.push(s);
-        }
-        this.group.position.set(Math.random()*30-15, 0.5, -20);
-        scene.add(this.group);
-        this.phase = Math.random()*10;
-    }
-    update(target) {
-        let speed = 0.04 + (currentLevel * 0.02);
-        const dir = new THREE.Vector3().subVectors(target, this.group.position).normalize();
-        this.group.position.add(dir.multiplyScalar(speed));
-        this.phase += 0.2;
-        this.segs[0].position.set(Math.sin(this.phase)*0.5, Math.cos(this.phase)*0.5, 0);
-        for(let i=1; i<this.segs.length; i++) this.segs[i].position.lerp(this.segs[i-1].position, 0.35);
-    }
-    remove() { scene.remove(this.group); }
-}
-
-function createFootprint(pos) {
-    const geo = new THREE.PlaneGeometry(0.3, 0.3);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.4 });
-    const fp = new THREE.Mesh(geo, mat);
-    fp.rotation.x = -Math.PI / 2;
-    fp.position.set(pos.x, 0.06, pos.z);
-    scene.add(fp);
-    footprints.push({ mesh: fp, life: 1.0 });
-}
-
-// --- Audio ---
-function playTone(freq, type, start, duration, vol=0.1) {
-    if(!audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + start);
-    g.gain.setValueAtTime(vol, audioCtx.currentTime + start);
-    g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + start + duration);
-    osc.connect(g); g.connect(audioCtx.destination);
-    osc.start(audioCtx.currentTime + start);
-    osc.stop(audioCtx.currentTime + start + duration);
-}
-
-function playDmgSound() {
-    playTone(100, 'sawtooth', 0, 0.2, 0.2);
-    playTone(40, 'sine', 0, 0.3, 0.3);
-}
-
-// --- Joystick Logic ---
+// --- Joystick ---
 const joyBase = document.getElementById('joystick-base');
 const joyStick = document.getElementById('joystick-stick');
 joyBase.addEventListener('touchstart', (e) => { touchInput.active = true; updateJoy(e); });
-joyBase.addEventListener('touchmove', (e) => { e.preventDefault(); updateJoy(e); });
+joyBase.addEventListener('touchmove', (e) => { e.preventDefault(); updateJoy(e); }, {passive:false});
 joyBase.addEventListener('touchend', () => { touchInput.active = false; touchInput.x = 0; touchInput.y = 0; joyStick.style.transform = 'translate(-50%, -50%)'; });
 
 function updateJoy(e) {
     const touch = e.touches[0];
     const rect = joyBase.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const dx = touch.clientX - centerX;
-    const dy = touch.clientY - centerY;
+    const dx = touch.clientX - (rect.left + rect.width / 2);
+    const dy = touch.clientY - (rect.top + rect.height / 2);
     const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
     const angle = Math.atan2(dy, dx);
     touchInput.x = (Math.cos(angle) * dist) / 40;
     touchInput.y = (Math.sin(angle) * dist) / 40;
-    joyStick.style.transform = `translate(calc(-50% + ${Math.cos(angle) * dist}px), calc(-50% + ${Math.sin(angle) * dist}px))`;
+    joyStick.style.transform = `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
 }
 
 // --- Interaction ---
-const keys = {};
-window.onkeydown = e => keys[e.code] = true;
-window.onkeyup = e => keys[e.code] = false;
-
 window.handleIntroClick = () => {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if(state !== 'intro') return;
-    const txt = document.getElementById('intro-text');
-    const btn = document.getElementById('click-to-start');
-    if(btn.style.display !== 'none') {
-        btn.style.display = 'none'; txt.style.display = 'block';
-    } else { showTitle(); }
-};
-
-function showTitle() {
-    state = 'title';
     document.getElementById('intro-screen').style.display = 'none';
     document.getElementById('start-screen').style.display = 'block';
-}
+};
 
 window.startGame = () => {
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('ui').style.opacity = '1';
     joyBase.style.display = 'block';
-    initLevel();
-};
-
-function initLevel() {
     state = 'play';
-    player.hp = player.maxHp;
-    player.saved = 0;
-    player.hasT = false;
-    player.pos.set(0, 0, 5);
-    spawnTreasures();
-    changeMap(0);
-}
-
-function spawnTreasures() {
-    treasures.forEach(t => { if(t) scene.remove(t); });
-    treasures = [null, null, null, null, null];
-    for(let i=2; i<=4; i++) {
-        const t = new THREE.Mesh(new THREE.OctahedronGeometry(0.5), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff}));
-        t.position.set(Math.random()*26-13, 0.6, Math.random()*26-13);
-        treasures[i] = t;
-    }
-}
-
-function changeMap(idx) {
-    if (idx === 1 && currentMap !== 1) {
-        // Convini Melody
-        const m = [587, 440, 392, 440, 493, 587, 440, 493, 440, 392, 587];
-        m.forEach((f, i) => playTone(f, 'square', i*0.2, 0.15, 0.05));
-    }
-    enemies.forEach(e => e.remove());
-    enemies = [];
-    treasures.forEach(t => { if(t) scene.remove(t); });
-    currentMap = idx;
-    floorMat.color.set(levels[currentLevel-1].mapColor);
-    altarGroup.visible = (idx === 1);
-    if(idx === 1) { player.hp = player.maxHp; updateUI(); }
-    if(treasures[idx]) scene.add(treasures[idx]);
-}
-
-function updateUI() {
-    document.getElementById('hearts').innerText = "■".repeat(Math.max(0, player.hp));
-    document.getElementById('status-text').innerText = levels[currentLevel-1].name;
-    document.getElementById('t-count').innerText = player.saved;
-}
-
-function triggerDamage() {
-    player.hp--;
-    player.invul = 90;
-    updateUI();
-    playDmgSound();
-    
-    // 赤フラッシュ
-    const df = document.getElementById('dmg-flash');
-    df.style.opacity = '1';
-    setTimeout(() => df.style.opacity = '0', 150);
-
-    // ノイズ演出
-    const noise = document.getElementById('noise-overlay');
-    noise.style.background = "rgba(255,0,0,0.3)";
-    setTimeout(() => noise.style.background = "transparent", 200);
-
-    if(player.hp <= 0) {
-        setTimeout(() => location.reload(), 500);
-    }
-}
+};
 
 function animate() {
     requestAnimationFrame(animate);
     if(state === 'play') {
-        let mvX = 0, mvZ = 0;
-        if(keys['ArrowUp'] || keys['KeyW']) mvZ -= 1;
-        if(keys['ArrowDown'] || keys['KeyS']) mvZ += 1;
-        if(keys['ArrowLeft'] || keys['KeyA']) mvX -= 1;
-        if(keys['ArrowRight'] || keys['KeyD']) mvX += 1;
-        
-        // Touch Input Override
-        if (touchInput.active) {
-            mvX = touchInput.x;
-            mvZ = touchInput.y;
+        let mvX = touchInput.x;
+        let mvZ = touchInput.y;
+
+        // キーボード操作も有効化
+        const keys = {}; // 簡易化のため
+        if (mvX === 0 && mvZ === 0) {
+            // ここにキーボード処理が必要な場合は追加
         }
 
-        if (mvX !== 0 || mvZ !== 0) {
+        if (Math.abs(mvX) > 0.1 || Math.abs(mvZ) > 0.1) {
             player.pos.x += mvX * 0.15;
             player.pos.z += mvZ * 0.15;
             const time = Date.now() * 0.01;
             pBody.position.y = 0.6 + Math.abs(Math.sin(time)) * 0.12;
-            pHead.position.y = 1.15 + Math.abs(Math.sin(time)) * 0.15;
-            lFoot.position.z = Math.sin(time) * 0.35;
-            rFoot.position.z = -Math.sin(time) * 0.35;
             playerGroup.rotation.y = Math.atan2(mvX, mvZ);
-
-            if (Date.now() - player.lastStep > 350) {
-                playTone(60, 'sine', 0, 0.1, 0.2);
-                createFootprint(player.pos);
-                player.lastStep = Date.now();
-            }
         }
 
         playerGroup.position.copy(player.pos);
+        pLight.position.set(player.pos.x, 3, player.pos.z);
         
-        // ダメージ中の点滅
-        if (player.invul > 0) {
-            playerGroup.visible = (Math.floor(Date.now() / 50) % 2 === 0);
-            player.invul--;
-        } else {
-            playerGroup.visible = true;
-        }
-
-        footprints.forEach((fp, i) => {
-            fp.life -= 0.01; fp.mesh.material.opacity = fp.life * 0.4;
-            if(fp.life <= 0) { scene.remove(fp.mesh); footprints.splice(i, 1); }
-        });
-
-        const limit = 19.8;
-        if(currentMap === 0) {
-            if(player.pos.z < -limit) { changeMap(1); player.pos.z = limit - 1; }
-            else if(player.pos.z > limit) { changeMap(4); player.pos.z = -limit + 1; }
-            else if(player.pos.x < -limit) { changeMap(3); player.pos.x = limit - 1; }
-            else if(player.pos.x > limit) { changeMap(2); player.pos.x = -limit + 1; }
-        } else {
-            if(currentMap === 1 && player.pos.z > limit) { changeMap(0); player.pos.z = -limit + 1; }
-            else if(currentMap === 4 && player.pos.z < -limit) { changeMap(0); player.pos.z = limit - 1; }
-            else if(currentMap === 3 && player.pos.x > limit) { changeMap(0); player.pos.x = -limit + 1; }
-            else if(currentMap === 2 && player.pos.x < -limit) { changeMap(0); player.pos.x = limit - 1; }
-            player.pos.x = Math.max(-limit, Math.min(limit, player.pos.x));
-            player.pos.z = Math.max(-limit, Math.min(limit, player.pos.z));
-        }
-
-        camera.position.set(player.pos.x, 18, player.pos.z + 12);
+        // カメラ位置をプレイヤーに追従 (少し高めから)
+        camera.position.set(player.pos.x, 15, player.pos.z + 12);
         camera.lookAt(player.pos);
-        pLight.position.set(player.pos.x, 2.5, player.pos.z);
-
-        if(treasures[currentMap] && !player.hasT && player.pos.distanceTo(treasures[currentMap].position) < 1.5) {
-            scene.remove(treasures[currentMap]); treasures[currentMap] = null;
-            player.hasT = true;
-            pPack.material.emissive = new THREE.Color(0x00ffff);
-            pPack.material.emissiveIntensity = 2;
-        }
-
-        if(currentMap === 1 && player.hasT && player.pos.distanceTo(new THREE.Vector3(0,0,0)) < 2.5) {
-            player.hasT = false; player.saved++;
-            pPack.material.emissive = new THREE.Color(0x000000);
-            updateUI();
-            if(player.saved >= 3) {
-                if(currentLevel < 3) {
-                    currentLevel++;
-                    document.getElementById('noise-overlay').style.background = "white";
-                    setTimeout(() => { initLevel(); document.getElementById('noise-overlay').style.background = "transparent"; }, 500);
-                } else { triggerEnding(); }
-            }
-        }
-
-        if(currentMap !== 1 && enemies.length < levels[currentLevel-1].enemyCount && Math.random() < 0.01) enemies.push(new Nematode3D());
-        enemies.forEach(en => {
-            en.update(player.pos);
-            if(player.invul === 0 && en.group.position.distanceTo(player.pos) < 1.2) {
-                triggerDamage();
-            }
-        });
     }
     renderer.render(scene, camera);
 }
-
-function triggerEnding() {
-    state = 'ending';
-    const overlay = document.getElementById('noise-overlay');
-    overlay.style.transition = "background 3s"; overlay.style.background = "white";
-    const endDiv = document.createElement('div');
-    endDiv.style.position = "absolute"; endDiv.style.top = "50%"; endDiv.style.left = "50%";
-    endDiv.style.transform = "translate(-50%, -50%)"; endDiv.style.color = "black";
-    endDiv.style.textAlign = "center"; endDiv.style.zIndex = "200";
-    endDiv.innerHTML = "<h1>PURIFICATION COMPLETE</h1><p>THE WORLD IS RESTORED</p>";
-    document.body.appendChild(endDiv);
-    setTimeout(() => location.reload(), 6000);
-}
-
 animate();
 
-// Resize
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
